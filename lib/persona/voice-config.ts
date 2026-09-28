@@ -1,35 +1,34 @@
-import { prompt } from "./conversation";
-import type { State } from "./state";
+import { prompt } from "./conversation.ts";
+import type { AgentSettingsObject } from "@deepgram/agents";
+import type { State } from "./state.ts";
 export const rememberFunction = {
   name: "remember_context",
   description:
     "Persist confirmed user name, useful task, refusals, or a useful draft. Call as soon as facts are learned, before replying. Null means unchanged.",
-  client_side: true,
   parameters: {
     type: "object",
     properties: {
-      userName: { type: ["string", "null"] },
-      need: { type: ["string", "null"] },
+      userName: { type: "string", description: "The user's preferred name, if shared." },
+      need: { type: "string", description: "What the user wants help with, if shared." },
       deferGmail: { type: "boolean" },
       artifact: {
-        type: ["object", "null"],
+        type: "object",
         properties: { title: { type: "string" }, body: { type: "string" } },
+        required: ["title", "body"],
       },
     },
-    required: ["userName", "need", "deferGmail"],
   },
 };
-export function voiceConfig(state: State, voice: string) {
+export function voiceConfig(state: State, voice: string): AgentSettingsObject {
   return {
-    language: "en",
-    listen: { provider: { type: "deepgram", model: "nova-3" } },
+    listen: { provider: { type: "deepgram", version: "v1", model: "nova-3", language: "en" } },
     think: {
       provider: { type: "open_ai", model: "gpt-4o-mini" },
       prompt: prompt(state, true),
       functions: [rememberFunction],
     },
     speak: {
-      provider: { type: "deepgram", model: voice || "aura-2-thalia-en" },
+      provider: { type: "deepgram", version: "v1", model: voice || "aura-2-thalia-en" },
     },
     greeting: state.need
       ? `Hey${state.userName ? ` ${state.userName}` : ""}. Let’s pick up where we left off. What would you like to tackle first?`

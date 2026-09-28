@@ -11,11 +11,23 @@ test("one message can capture all facts and start helping before Gmail", () => {
       userName: "Sam",
       need: "Recruiter follow-up",
     },
+    callAvailable: true,
   });
   assert.equal(s.helping, true);
   assert.equal(s.call, "offered");
   assert.equal(s.gmail, "not_connected");
   assert.equal(s.userName, "Sam");
+});
+test("naming the assistant does not offer a call when voice is unavailable", () => {
+  const s = reduce(initialState(), {
+    id: "name",
+    type: "turn",
+    text: "goon",
+    proposal: { agentName: "goon", reply: "goon it is." },
+    callAvailable: false,
+  });
+  assert.equal(s.agentName, "goon");
+  assert.equal(s.call, "not_offered");
 });
 test("correction persists through hangup and duplicate events are no-ops", () => {
   let s = reduce(initialState(), {

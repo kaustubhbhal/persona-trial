@@ -13,11 +13,12 @@ import { clean, type Proposal } from "@/lib/persona/state";
 import { respond } from "@/lib/persona/conversation";
 import { googleConfigured, startGoogle } from "@/lib/persona/google";
 import { voiceConfig } from "@/lib/persona/voice-config";
+import { grantVoiceToken, voiceAvailable } from "@/lib/persona/voice-availability";
 export const dynamic = "force-dynamic";
-function capabilities() {
+async function capabilities() {
   return {
     ai: Boolean(setting("OPENAI_API_KEY")),
-    voice: Boolean(setting("DEEPGRAM_API_KEY")),
+    voice: await voiceAvailable(setting("DEEPGRAM_API_KEY")),
     gmail: googleConfigured(),
   };
 }
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   try {
     const session = await getSession(request, true);
     return json(
-      { state: session.state, capabilities: capabilities() },
+      { state: session.state, capabilities: await capabilities() },
       200,
       session.cookie,
     );
@@ -69,26 +70,13 @@ export async function POST(request: Request) {
       if (!(await lockTurn(row.id, id)))
         return json({ error: "One moment—another request is finishing." }, 409);
       try {
-        const response = await fetch("https://api.deepgram.com/v1/auth/grant", {
-          method: "POST",
-          headers: {
-            Authorization: `Token ${setting("DEEPGRAM_API_KEY")}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ ttl_seconds: 300 }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (!response.ok)
-          throw new Error(
-            "Voice could not connect. Please try again or stay in text.",
-          );
-        const data = (await response.json()) as { access_token?: string };
-        if (!data.access_token)
-          throw new Error("Voice could not connect. Please try again.");
+        const token = await grantVoiceToken(setting("DEEPGRAM_API_KEY"));
         return json({
-          token: data.access_token,
+          token,
           agent: voiceConfig(state, setting("DEEPGRAM_VOICE")),
         });
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : "Voice is unavailable right now." }, 503);
       } finally {
         await unlockTurn(row.id, id);
       }
@@ -115,13 +103,15 @@ export async function POST(request: Request) {
         );
       try {
         const latest = await getSession(request);
+        const canCall = await voiceAvailable(setting("DEEPGRAM_API_KEY"));
         const proposal = await respond(
           latest.state,
           text,
           setting("OPENAI_API_KEY"),
           setting("PERSONA_OPENAI_MODEL"),
+          canCall,
         );
-        const next = await apply(row.id, { id, type: "turn", text, proposal });
+        const next = await apply(row.id, { id, type: "turn", text, proposal, callAvailable: canCall });
         return json({ state: next });
       } finally {
         await unlockTurn(row.id, id);

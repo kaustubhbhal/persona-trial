@@ -40,6 +40,7 @@ export type Event = {
   status?: string;
   email?: string;
   artifact?: Artifact;
+  callAvailable?: boolean;
 };
 export function initialState(): State {
   return {
@@ -59,7 +60,7 @@ export function initialState(): State {
         id: "hello",
         role: "assistant",
         content:
-          "Hey, I’m your new plus-one. What should I call myself? Pick a name, or I can choose.",
+          "Hi. What should I call myself? You can pick a name or ask me to choose.",
         channel: "text",
         at: Date.now(),
       },
@@ -96,7 +97,8 @@ export function reduce(s: State, event: Event): State {
     }
     if (p.deferGmail && next.gmail !== "connected") next.gmail = "deferred";
     if (p.declineCall && next.call !== "active") next.call = "declined";
-    if (next.agentName && next.call === "not_offered") next.call = "offered";
+    if (next.agentName && next.call === "not_offered" && event.callAvailable)
+      next.call = "offered";
     if (p.artifact && clean(p.artifact.body, 12000))
       next.artifact = {
         title: clean(p.artifact.title),
@@ -145,9 +147,9 @@ export function reduce(s: State, event: Event): State {
   next.messages = next.messages.slice(-120);
   return next;
 }
-export function nextAction(s: State): string {
+export function nextAction(s: State, callAvailable = false): string {
   if (!s.agentName) return "Choose an agent name";
-  if (s.call === "offered") return "Offer a short call; text remains available";
+  if (callAvailable && s.call === "offered") return "Offer a short call; text remains available";
   if (s.need)
     return "Help with the task; collect missing context only when useful";
   if (!s.userName) return "Learn what to call the user";
