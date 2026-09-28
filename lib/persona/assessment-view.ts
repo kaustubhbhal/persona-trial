@@ -8,6 +8,14 @@ export type GoalStatus = {
   status: "complete" | "open" | "deferred" | "failed" | "unavailable";
 };
 
+export function showGmailAction(state: State, capabilities: Capabilities): boolean {
+  if (!capabilities.gmail || !["not_connected", "failed"].includes(state.gmail)) return false;
+  if (!state.agentName) return false;
+  const latestAssistant = [...state.messages].reverse().find((message) => message.role === "assistant");
+  const invited = latestAssistant && /(?:connect|verify).{0,35}gmail|gmail.{0,35}(?:connect|verify)/i.test(latestAssistant.content);
+  return Boolean(invited || (state.userName && state.need));
+}
+
 export function onboardingGoals(
   state: State,
   capabilities: Capabilities,
