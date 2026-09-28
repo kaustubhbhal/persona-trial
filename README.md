@@ -1,16 +1,12 @@
-# Persona assessment
+# Persona onboarding assessment
 
-Disposable conversational onboarding, isolated from Orbit. A React/Vinext app with durable D1 sessions, shared voice/text memory, a contextual editable draft, a real Google OAuth implementation, and Deepgram browser voice integration.
+A small, separate demo of conversational onboarding. It tries to learn an assistant name, your name, a useful task, and a connected Gmail account. After the assistant is named, it offers a browser call when Deepgram is available. People can skip, correct themselves, hang up, or start a task immediately; text remains usable throughout.
 
-## Current status
-
-The UI, session storage, rehearsal conversation, corrections, early task graduation, draft editing, Gmail OAuth start/cancel validation, and missing-voice recovery are working. Deepgram audio and real model conversation still require working credentials. Rehearsal mode is visibly labeled and intentionally limited; it is not a substitute for the conversational stress test.
-
-This app borrows Orbit's Google credential variable names and OAuth/session design. It does not import Orbit's runtime data, personal sessions, inbox, or service databases. Existing Orbit files were not changed.
+This is an assessment, not an Orbit account or inbox client. Gmail OAuth verifies the account but this demo does not read message bodies or send mail. The single-column conversation uses the visual language of yourpersona.com. Sent text appears immediately while a reply is pending. A draft appears when the user has given enough context and can be edited or copied. Gmail is an optional header action when configured; it does not interrupt the conversation. **Internals** exposes confirmed facts, channel status, the next action, and recent application events for reviewers. **Reset** clears the session, draft, and stored Google credentials.
 
 ## Run locally
 
-Node 22.13+ required.
+Node 22.13+ is required.
 
 ```sh
 npm ci
@@ -19,47 +15,57 @@ npm run db:local
 npm run dev -- --port 3017
 ```
 
-Open http://localhost:3017. Without an OpenAI key, the UI uses a deterministic rehearsal with starter drafts. Set a working `OPENAI_API_KEY` to enable structured live responses. Set `DEEPGRAM_API_KEY` to enable actual browser calls; Deepgram's Voice Agent runs its configured thinking provider. Restart the server after changing environment variables.
+Open `http://localhost:3017`. The default `vinext` dev port is 5173; the command above requests 3017 so it matches the Google callback listed below. If that port is occupied, check the terminal for the actual port and add its callback URL to the OAuth client before testing Gmail.
 
-Only `.env.local` stores local secrets, and it is ignored. Cloud deployment uses runtime secrets, not source or build-time public values.
+Local secrets live only in ignored `.env.local`. `OPENAI_API_KEY` enables live text replies; without it, a labeled rehearsal path provides starter responses. `DEEPGRAM_API_KEY` enables browser calls only if Deepgram's short-lived token grant succeeds. The key needs permission to grant tokens. `PERSONA_SESSION_SECRET` must contain at least 32 characters for Gmail OAuth. Restart the server after changing environment values.
 
-## Gmail
+## Gmail OAuth
 
-Reuse Orbit's existing Google OAuth web client and add these exact authorized redirect URIs in Google Cloud:
+The app reuses the Google OAuth web client variable names from Orbit but has its own session and encrypted credential storage. Keep Orbit's existing callbacks. Add these assessment callbacks as needed:
 
 - `http://localhost:3017/api/google/callback`
-- `https://persona-first-conversation.kaustubhsbhal.chatgpt.site/api/google/callback`
+- `https://persona-assessment.kaustubhsbhal.workers.dev/api/google/callback`
 
-Do not replace Orbit's existing redirect URI. This app computes its own redirect based on the request origin; it intentionally does not use `GOOGLE_OAUTH_REDIRECT_URL`.
+The flow uses session-bound one-time state, PKCE, a 10-minute authorization window, server-side token exchange, a verified `gmail.readonly` grant, Gmail profile verification, and AES-GCM encrypted token storage. Authorization runs in a popup when allowed. Cancelling does not block the task. Reset deletes this app's stored credentials; it does not revoke Google's app-level authorization.
 
-The flow uses session-bound one-time state, PKCE, a 10-minute authorization expiry, server-side token exchange, verified `gmail.readonly` grant, Gmail profile verification, and AES-GCM encrypted token storage. Tokens are not returned to the browser. Authorization opens in a separate window; the main call can continue. Cancellation does not block the task.
+## Cloudflare Workers deployment
 
-The assessment currently verifies the Gmail account only. It does not read message bodies, send mail, or refresh expired tokens for ongoing inbox use. Drafts use information the user provides. Restarting an assessment deletes its stored credentials; it does not revoke Google's app-level grant, which may also be used by Orbit.
+The public assessment is [persona-assessment.kaustubhsbhal.workers.dev](https://persona-assessment.kaustubhsbhal.workers.dev). Its dedicated D1 database and schema are deployed. The public Worker currently runs in rehearsal mode because its provider secrets have not been uploaded; AI, voice, and Gmail are unavailable there until those secrets are set and the Google callback is saved.
+
+The production build emits a Worker and a local placeholder D1 binding. `scripts/cloudflare-deploy.mjs` replaces that placeholder with the real ID and deploys the same vinext application. It does not print or embed provider secrets.
+
+1. Sign in with `./node_modules/.bin/wrangler login`.
+2. Create a dedicated database with `./node_modules/.bin/wrangler d1 create persona-assessment` and record the returned database UUID.
+3. Apply `drizzle/0000_amused_sasquatch.sql` to it with `./node_modules/.bin/wrangler d1 execute persona-assessment --remote --file drizzle/0000_amused_sasquatch.sql`.
+4. Set `PERSONA_D1_DATABASE_ID` to the returned UUID in the environment running `npm run deploy:cloudflare`. For this deployment, the ID is `b05a151e-bee6-4e55-ab86-8976087e51b2`.
+5. On the deployed Worker, set `OPENAI_API_KEY`, `PERSONA_OPENAI_MODEL`, `DEEPGRAM_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `PERSONA_SESSION_SECRET` as Worker secrets. `DEEPGRAM_VOICE` is optional. Use `wrangler secret put NAME --config dist/server/wrangler.persona.json` for each; enter values without printing them. Wrangler publishes a new Worker version when each secret is set.
+6. Add the final Workers callback URL to the Google OAuth client, then verify `/api/persona` and the onboarding in a browser.
+
+The deployment script can be checked without contacting Cloudflare:
+
+```sh
+PERSONA_D1_DATABASE_ID=00000000-0000-4000-8000-000000000001 node scripts/cloudflare-deploy.mjs --dry-run
+```
+
+A separate owner-private Sites preview is still recorded in `.openai/hosting.json`. The direct Workers deployment is the shareable interview target; neither replaces Orbit's production site.
 
 ## Checks
 
 ```sh
+npm test
 npm run typecheck
 npm run lint
-npm test
-# Requires the local server and rehearsal mode:
-npm run test:integration
 npm run build
 ```
 
-The integration suite creates disposable sessions and checks duplicate requests, concurrent updates, cross-session isolation, forged connection status, cross-origin requests, oversized bodies, refresh persistence, missing voice configuration, OAuth cancellation and replay rejection. It never opens a real inbox or makes a model call.
+`npm run test:integration` runs a rehearsal-only HTTP suite and expects a local server without `OPENAI_API_KEY`; it avoids model charges. It covers duplicate and concurrent events, forged Gmail status, cross-session isolation, origin/body validation, OAuth cancellation and replay, and Reset. Unit tests cover onboarding state, voice config, and the deployment configuration. Local HTTP smoke testing with live keys should avoid sending unnecessary model turns.
 
-## Files
+## Main files
 
-- `app/page.tsx`, `app/globals.css`: responsive conversation, call controls, contextual draft, Gmail card, and Internals panel.
-- `lib/persona/state.ts`: bounded facts, independent setup/task state and idempotent events.
-- `lib/persona/store.ts`: opaque HTTP-only sessions, D1 compare-and-swap and turn lease.
-- `lib/persona/conversation.ts`: shared prompt, structured response schema and labeled rehearsal.
-- `lib/persona/use-voice.ts`, `voice-config.ts`: Deepgram microphone/player lifecycle, interruptions, transcript persistence and shared tools.
-- `lib/persona/google.ts`: OAuth and encrypted credential persistence.
-- `app/api/persona/route.ts`: same-origin server API.
-- `docs/HANDOFF.md`: remaining setup and interview stress-test script.
-
-## Deployment
-
-A separate private Sites project is recorded in `.openai/hosting.json`. D1 migrations are in `drizzle/`. Publish using the Sites workflow; never deploy this app over Orbit's website. Private previews require owner sign-in. Reviewer access needs to be arranged before sharing the interview link.
+- `app/page.tsx`, `app/globals.css`: responsive single-column conversation, optimistic sent messages, optional Gmail sheet, contextual drafts, call controls, Internals, and Reset.
+- `lib/persona/state.ts`, `lib/persona/assessment-view.ts`: confirmed facts, transitions, and review status projection.
+- `lib/persona/store.ts`, `app/api/persona/route.ts`: HTTP-only D1 session, atomic updates, server API, and reset.
+- `lib/persona/conversation.ts`: live text prompt, structured reply, and rehearsal behavior.
+- `lib/persona/use-voice.ts`, `voice-config.ts`, `voice-availability.ts`: Deepgram call lifecycle, settings, and capability/token-grant checks.
+- `lib/persona/google.ts`: OAuth, account verification, and encrypted credentials.
+- `docs/HANDOFF.md`: current deployment state and interview walkthrough.

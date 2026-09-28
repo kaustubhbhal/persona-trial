@@ -1,40 +1,27 @@
-# What needs you next
+# Persona assessment handoff
 
-1. **Deepgram key:** add a working `DEEPGRAM_API_KEY` as a runtime secret and to local `.env.local`. No key was present in Orbit. The integration is compiled against `@deepgram/agents` 0.1.2, but actual microphone/audio, barge-in, model function calls, latency and provider behavior have not been live-tested.
-2. **Text model key:** Orbit's copied local OpenAI key returned HTTP 401 `invalid_api_key` in a minimal provider check. It was removed from this app's local config, was not deployed, and Orbit's original file was left untouched. Add a valid key to enable live conversation. Hosted and local previews currently show limited rehearsal mode.
-3. **Google callback:** add the local and hosted callback URLs from README to the existing Orbit OAuth client. This avoids changing Orbit's callback. Google credentials and the new assessment-specific encryption secret are configured privately. Live token exchange with an actual account still needs testing. If Google's app remains in testing, ensure the interviewer account can authorize it.
-4. **Reviewer access:** the hosted preview is owner-private. Decide how the interviewer should access it before sending a link. Keep this separate from Orbit's production permissions.
+## Current state
 
-## Scope boundaries
+The onboarding demo is separate from Orbit. Its single-column conversation takes visual cues from yourpersona.com: black type, generous white space, rounded message bubbles, and a restrained green accent. Gmail lives in an optional header sheet when configured; drafts appear in the conversation when useful. Internals is labeled in the header and shows four onboarding goals, channel status, the next useful move, and recent state events. Reset is also in the header and deletes the assessment session, draft, and stored Gmail credentials.
 
-This is a scaffold with a complete rehearsal UI and real provider integration code. It is not yet a fully live interview submission. Gmail connection means verified authorization and account profile, not inbox retrieval. No email is sent. The rehearsal uses deterministic starter drafts; it cannot handle arbitrary natural language like the live model is intended to.
+Text, voice, Google OAuth, and D1 use the existing integration paths. The Deepgram settings were checked against a live connection response after removing an unsupported client function field. Local credentials are present and `/api/persona` reports text, voice, and Gmail configured. A successful Gmail login with a real account and a full microphone conversation still need end-to-end interview testing. The production build completes.
 
-There is no microphone recording stored. Text transcripts and confirmed facts persist in the assessment's own D1 session for seven days; expired rows are cleaned when new sessions are created. Function-tool persistence depends on Deepgram delivering the tool event; hanging up before the provider emits a completed transcript/tool cannot preserve unsent speech. A live call intentionally falls back to text on network loss rather than silently redialing.
+## Public deployment and remaining setup
+
+The public Worker is [persona-assessment.kaustubhsbhal.workers.dev](https://persona-assessment.kaustubhsbhal.workers.dev). Wrangler is authenticated, the dedicated D1 database (`b05a151e-bee6-4e55-ab86-8976087e51b2`) has the schema, and the app is deployed. Public text onboarding, immediate sent-message rendering, the Jarvis/Michael/tomorrow/classes path, Internals, and Reset were exercised at desktop and 390 px mobile widths. `/api/persona` returns a fresh session and currently reports `ai: false`, `voice: false`, and `gmail: false`.
+
+The remaining account setup is to upload the existing local provider credentials as Cloudflare Worker secrets and save `https://persona-assessment.kaustubhsbhal.workers.dev/api/google/callback` on the Persona OAuth web client in the Orbit Google Cloud project. The current Google client has only the localhost callback. The local `.env.local` values must stay ignored and server-side. Automatic approval review rejected exporting them to Cloudflare, so this step requires explicit user authorization or manual entry. The public flow stays in labeled rehearsal mode until then. The separate owner-private `chatgpt.site` preview is not the reviewer link.
 
 ## Interview walkthrough
 
-1. Choose Milo or give the agent an unusual name.
-2. Accept the browser call. Interrupt it while it is speaking.
-3. Give your name and task in a single sentence.
-4. Correct your name and change the task mid-conversation.
-5. Hang up while the agent responds; continue in text.
-6. Open Gmail authorization and cancel it. Continue the task.
-7. Connect Gmail successfully, verifying the displayed account.
-8. Refresh the page. Confirm the conversation, facts and draft survive.
-9. Open session details to inspect what was captured and the application events.
-10. Edit and save the draft, then refresh again.
+1. Give the assistant an unusual name or ask it to choose. The name should be respected.
+2. Accept the browser call; give your name and task in one sentence, then correct your name.
+3. Hang up and continue in text. The confirmed facts should survive.
+4. Skip Gmail, then use the header Gmail action later once the Worker secrets and callback are configured. Cancel once, then connect if the account is available.
+5. Start a practical task before completing every onboarding field. For tasks with enough context, open the inline draft, edit it, and copy it.
+6. Open Internals to inspect captured facts, channel states, next action, and event history.
+7. Reset and confirm the fresh opening state. A refresh alone may restore the short-lived D1 session; Reset is the intended test restart.
 
-## Engineering notes for the next pass
+## Validation
 
-- Live-test the Deepgram settings/models and function argument schema with a key, then add a provider-backed interruption/reconnect drill.
-- Validate actual model behavior against out-of-order answers, vague refusals, jokes, multiple names, prompt injection, and early graduation. State invariants already have automated checks; conversation quality needs live evaluation.
-- The private assessment has bounded per-session text turns and request sizes. Add deployment-level rate limits before making a public, unmetered API-key-backed demo.
-- Browser refresh drops a live WebSocket by design; the user resumes text or explicitly starts another call. Durable facts survive.
-- A single session is intended for one active conversation. Concurrent state updates use compare-and-swap; text turns use a lease and duplicate request IDs. This is not an account system across devices.
-
-## Validation completed
-
-- TypeScript check, ESLint and production build passed.
-- Six state regression tests and 14 local HTTP integration checks passed.
-- Browser checks covered agent naming, missing-voice fallback, early draft creation, name correction, reload persistence, a 390px mobile layout, workspace opening and draft saving.
-- Real Deepgram audio and successful Google account authorization remain untested without the setup above.
+Nineteen unit tests, lint, TypeScript, and the production vinext build pass. A local HTTP check confirms Reset invalidates the old cookie and returns an empty state. The rehearsal-only integration suite should be run against a server without an OpenAI key; the current local server has live keys, so running the full suite there would call the provider. Browser visual checks passed on the deployed Worker at wide and 390 px mobile widths. Public AI, Deepgram call, and Gmail OAuth end-to-end checks remain pending the Worker secrets and callback.

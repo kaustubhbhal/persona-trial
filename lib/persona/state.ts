@@ -80,6 +80,12 @@ export function reduce(s: State, event: Event): State {
   const next = structuredClone(s);
   const at = Date.now();
   const add = (role: Message["role"], content: string, suffix: string) => {
+    const previous = next.messages.at(-1);
+    if (event.type === "transcript" && content && previous?.channel === "voice" && previous.role === role && at - previous.at < 8_000 && (role === "assistant" || (previous.content.length < 48 && !/[.!?]$/.test(previous.content)))) {
+      previous.content = `${previous.content} ${content}`;
+      previous.at = at;
+      return;
+    }
     if (content)
       next.messages.push({
         id: `${event.id}:${suffix}`,

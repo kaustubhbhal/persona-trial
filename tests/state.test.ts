@@ -83,3 +83,11 @@ test("unbounded input is trimmed and empty updates cannot erase confirmed facts"
   assert.equal(s.userName, "Sam");
   assert.equal(s.need.length, 1500);
 });
+
+test("short interrupted voice fragments form one visible turn", () => {
+  let s = reduce(initialState(), { id: "v1", type: "transcript", role: "user", channel: "voice", text: "Let's" });
+  s = reduce(s, { id: "v2", type: "transcript", role: "user", channel: "voice", text: "plan my day tomorrow." });
+  assert.equal(s.messages.at(-1)?.content, "Let's plan my day tomorrow.");
+  assert.equal(s.messages.filter((message) => message.role === "user").length, 1);
+  assert.equal(s.version, 2);
+});

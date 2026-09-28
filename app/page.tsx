@@ -55,6 +55,7 @@ export default function Home() {
   });
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [optimistic, setOptimistic] = useState<{ id: string; text: string } | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
@@ -144,6 +145,8 @@ export default function Home() {
     setBusy(true);
     if (!pendingTurn.current || pendingTurn.current.text !== message)
       pendingTurn.current = { id: crypto.randomUUID(), text: message };
+    setOptimistic(pendingTurn.current);
+    setText("");
     try {
       if (voice.active) await voice.stop();
       const data = await api("turn", {
@@ -151,9 +154,10 @@ export default function Home() {
         id: pendingTurn.current.id,
       });
       accept(data.state);
-      setText("");
+      setOptimistic(null);
       pendingTurn.current = null;
     } catch (e) {
+      setOptimistic(null);
       setText(message);
       setError(
         e instanceof Error
@@ -194,6 +198,7 @@ export default function Home() {
       await api<{ ok: boolean }>("reset");
       setState(null);
       setText("");
+      setOptimistic(null);
       setArtifactEdit(null);
       setDraftOpen(false);
       setNotice("");
@@ -218,18 +223,8 @@ export default function Home() {
   }
   const name = state?.agentName || "Assistant";
   const active = voice.active;
-  const callLabel =
-    voice.phase === "connecting"
-      ? "Connecting…"
-      : voice.muted
-        ? "Microphone muted"
-        : voice.phase === "thinking"
-          ? "Thinking with you"
-          : voice.phase === "speaking"
-            ? `${name} is speaking`
-            : "Listening to you";
   const artifact = state?.artifact;
-  const showGmail = Boolean(state?.agentName);
+  const showGmail = Boolean(state?.agentName && capabilities.gmail) || state?.gmail === "connected";
   const draftEditor = artifact ? (
     <div className="artifact">
       <Textarea
@@ -308,121 +303,51 @@ export default function Home() {
   );
   return (
     <main className="app-shell">
-      <aside className={`companion-panel ${capabilities.voice ? "" : "voice-unavailable"}`}>
-        <div className="wordmark" aria-label="Persona">
-          <span className="brand-mark">
-            <span />
-            <span />
-          </span>
-          persona<span className="wordmark-period">.</span>
-        </div>
-        <div className="companion-main">
-          <div className="intro-label">
-            <span className="small-dash" />
-            {state?.helping ? "WORKING TOGETHER" : "PERSONAL ASSISTANT"}
-          </div>
-          <h1>
-            {state?.helping ? (
-              <>
-                Let’s work
-                <br />
-                <em>on it.</em>
-              </>
-            ) : (
-              <>
-                Start with
-                <br />
-                <em>a conversation.</em>
-              </>
-            )}
-          </h1>
-          {(capabilities.voice || active) && <div
-            className={`voice-presence ${active ? "is-active" : ""}`}
-            aria-hidden="true"
-          >
-            <div className="presence-ring outer" />
-            <div className="presence-ring inner" />
-            <div className="presence-core">
-              <div className="sound-bars">
-                {[12, 25, 38, 29, 45, 25, 15].map((height, i) => (
-                  <span
-                    key={i}
-                    style={{ height, animationDelay: `${i * 0.13}s` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>}
-          <div className="companion-identity">
-            <h2>{name}</h2>
-            <p>
-              {active
-                ? callLabel
-                : state?.agentName
-                  ? "Your assistant"
-                  : "Pick a name to begin"}
-            </p>
-          </div>
-          {(capabilities.voice || active) && <div className="call-controls">
-            {active ? (
-              <>
-                <Button
-                  className="mute-button"
-                  variant="outline"
-                  onClick={voice.toggleMute}
-                  aria-label={
-                    voice.muted ? "Unmute microphone" : "Mute microphone"
-                  }
-                >
-                  {voice.muted ? <MicOff /> : <Mic />}
-                </Button>
-                <Button
-                  className="end-button"
-                  onClick={() =>
-                    void voice.stop().catch((e) => setError(e.message))
-                  }
-                >
-                  <PhoneOff size={17} />
-                  End call
-                </Button>
-              </>
-            ) : (
-              <Button
-                className="call-button"
-                disabled={!state || busy}
-                onClick={() => {
-                  setError("");
-                  void voice.start();
-                }}
-              >
-                <Phone size={17} />
-                {state?.call === "ended" || state?.call === "failed"
-                  ? "Call again"
-                  : "Let’s talk"}
-                <span>↗</span>
-              </Button>
-            )}
-          </div>}
-          {(capabilities.voice || active) && <p className="call-caption">
-            {active
-              ? "You can interrupt. I’m listening."
-              : "Talk here in your browser."}
-          </p>}
-        </div>
-      </aside>
       <section className="conversation-panel">
         <header className="conversation-header">
-          <div>
-            <span className="eyebrow">
-              {state?.helping ? "IN PROGRESS" : "FIRST CONVERSATION"}
-            </span>
-            <h2>
-              {state?.userName
-                ? `Hi, ${state.userName}.`
-                : "Let’s begin."}
-            </h2>
+          <div className="header-brand">
+            <span className="brand-mark" aria-hidden="true"><span /><span /></span>
+            <div>
+              <strong>Persona</strong>
+              <span>{state?.agentName ? `Talking with ${name}` : "Your personal intelligence"}</span>
+            </div>
           </div>
           <div className="header-actions">
+            {showGmail && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" className="header-gmail">
+                    <Mail size={16} />
+                    <span>{state?.gmail === "connected" ? "Connected" : "Gmail"}</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="details-sheet connection-sheet">
+                  <SheetHeader>
+                    <SheetTitle>Gmail</SheetTitle>
+                    <SheetDescription>Optional account connection</SheetDescription>
+                  </SheetHeader>
+                  {gmailCard}
+                </SheetContent>
+              </Sheet>
+            )}
+            {capabilities.voice && state?.agentName && (
+              <div className="header-call">
+                {active ? (
+                  <>
+                    <Button variant="ghost" className="mute-button" onClick={voice.toggleMute} aria-label={voice.muted ? "Unmute microphone" : "Mute microphone"}>
+                      {voice.muted ? <MicOff size={16} /> : <Mic size={16} />}
+                    </Button>
+                    <Button className="end-button" onClick={() => void voice.stop().catch((e) => setError(e.message))}>
+                      <PhoneOff size={15} /> End call
+                    </Button>
+                  </>
+                ) : (
+                  <Button className="call-button" disabled={busy} onClick={() => { setError(""); void voice.start(); }}>
+                    <Phone size={15} /> {state.call === "ended" || state.call === "failed" ? "Call again" : "Call"}
+                  </Button>
+                )}
+              </div>
+            )}
             <Sheet open={draftOpen} onOpenChange={setDraftOpen}>
               <SheetContent className="draft-sheet">
                 <SheetHeader>
@@ -549,11 +474,6 @@ export default function Home() {
                 className={`message message-${message.role}`}
                 key={message.id}
               >
-                {message.role === "assistant" && (
-                  <div className="message-avatar">
-                    <span className="mini-mark">p</span>
-                  </div>
-                )}
                 <div className="message-content">
                   <div className="message-label">
                     {message.role === "user"
@@ -570,11 +490,13 @@ export default function Home() {
               </div>
             ))
           )}
+          {optimistic && (
+            <div className="message message-user message-pending" data-testid="optimistic-message">
+              <div className="message-content"><div className="message-label">{state?.userName || "You"}</div><p>{optimistic.text}</p></div>
+            </div>
+          )}
           {busy && (
             <div className="message message-assistant">
-              <div className="message-avatar">
-                <span className="mini-mark">p</span>
-              </div>
               <div className="thinking" aria-label="Thinking">
                 <span />
                 <span />
@@ -627,7 +549,6 @@ export default function Home() {
               </Button>
             </section>
           )}
-          {showGmail && gmailCard}
           <div ref={end} />
         </div>
         <div className="composer-area">
@@ -658,9 +579,7 @@ export default function Home() {
             </div>
           )}
           {state && !capabilities.ai && (
-            <div className="rehearsal-note">
-              Limited rehearsal mode · Live AI isn’t configured here yet.
-            </div>
+            <div className="rehearsal-note">Rehearsal mode · Live AI isn’t connected.</div>
           )}
           {state?.call === "ended" && !active && (
             <div className="channel-note">

@@ -76,7 +76,6 @@ export function useVoice(
   useEffect(() => {
     latestState.current = state;
   }, [state]);
-  const gmailStatus = state?.gmail;
   useEffect(() => {
     const current = latestState.current;
     if (
@@ -85,7 +84,7 @@ export function useVoice(
       resources.current.session.state === "connected"
     )
       resources.current.session.updatePrompt(prompt(current, true));
-  }, [gmailStatus]); // Gmail is verified outside the voice agent.
+  }, [state?.agentName, state?.userName, state?.need, state?.gmail, state?.gmailEmail, state?.artifact?.title, state?.artifact?.body]); // Keep confirmed facts current during the call.
   const start = useCallback(async () => {
     if (resources.current) return;
     const r: {
