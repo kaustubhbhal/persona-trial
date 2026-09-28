@@ -24,3 +24,14 @@ test("voice picks up a reminder without asking for the task again", () => {
   assert.match(config.greeting || "", /What time tomorrow\?/);
   assert.doesNotMatch(config.greeting || "", /tackle first/i);
 });
+
+test("rejoining a call does not replay the original task introduction", () => {
+  const state = initialState();
+  state.agentName = "Milo";
+  state.need = "Plan tomorrow";
+  state.call = "ended";
+  state.artifact = { title: "Tomorrow", body: "9 AM — Class" };
+  const config = voiceConfig(state, "");
+  assert.match(config.greeting || "", /pick up where we left off/i);
+  assert.doesNotMatch(config.greeting || "", /your draft is here/i);
+});

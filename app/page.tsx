@@ -557,7 +557,7 @@ export default function Home() {
             <div className="call-invitation">
               <div>
                 <Phone size={16} />
-                <span>Want to talk this through?</span>
+                <span>How about we call instead?</span>
               </div>
               <Button variant="outline" onClick={() => void voice.start()}>
                 Start browser call

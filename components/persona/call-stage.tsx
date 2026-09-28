@@ -32,7 +32,7 @@ export function CallStage({ agentName, userName, phase, muted, caption, action, 
         <span className="call-stage-brand"><span className="brand-mark" aria-hidden="true"><span /><span /></span>Persona</span>
         <Button variant="ghost" onClick={onReturnToText}><ArrowLeft size={16} /> Back to chat</Button>
       </header>
-      <div className="call-stage-body">
+      <div className={`call-stage-body${action ? " has-action" : ""}`}>
         <div className="call-stage-center">
           <span className="call-stage-eyebrow">BROWSER CALL</span>
           <div className={`call-presence phase-${phase}`} aria-hidden="true"><AudioLines size={58} strokeWidth={1.5} /></div>

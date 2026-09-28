@@ -11,8 +11,8 @@ export type GoalStatus = {
 export function showGmailAction(state: State, capabilities: Capabilities): boolean {
   if (!capabilities.gmail || !["not_connected", "failed"].includes(state.gmail)) return false;
   const latestAssistant = [...state.messages].reverse().find((message) => message.role === "assistant");
-  const invited = latestAssistant && /(?:connect|verify).{0,35}gmail|gmail.{0,35}(?:connect|verify)/i.test(latestAssistant.content);
-  return Boolean(invited || state.gmail === "failed");
+  const invited = latestAssistant && /(?:connect|verify).{0,35}(?:gmail|google)|(?:gmail|google).{0,35}(?:connect|verify)/i.test(latestAssistant.content);
+  return Boolean(invited || state.need || state.gmail === "failed");
 }
 
 export function onboardingGoals(

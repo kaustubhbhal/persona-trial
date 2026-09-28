@@ -69,10 +69,10 @@ export function steerProposal(
   const delivered = Boolean(next.artifact || next.need || state.need);
   if (/^(?:stop|goodbye|bye|leave me alone|i(?:'|’)m done|no more)[.!]?$/i.test(text.trim())) return next;
   const missingName = !state.userName && !clean(next.userName);
-  if (delivered && missingName && !declinedUserName(state, text) && askedName(state) < 2 && !reply.includes("?")) {
-    next.reply = `${reply} What should I call you?`;
-  } else if (delivered && state.userName && canGmail && state.gmail === "not_connected" && !next.deferGmail && !offeredGmail(state) && !reply.includes("?")) {
-    next.reply = `${reply} Gmail is optional here; connecting it verifies your account. Want to do that now, or keep going?`;
-  }
+  if (delivered && missingName && !declinedUserName(state, text) && askedName(state) < 2 && !reply.includes("?"))
+    reply = `${reply} What should I call you?`;
+  if (delivered && canGmail && state.gmail === "not_connected" && !next.deferGmail && !offeredGmail(state) && !/gmail.{0,35}(?:connect|verif)|connect.{0,35}gmail/i.test(reply))
+    reply = `${reply} Gmail is optional here; connecting it verifies your account. The Connect Gmail action is below if you want it.`;
+  next.reply = reply;
   return next;
 }

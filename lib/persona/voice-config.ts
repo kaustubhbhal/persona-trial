@@ -30,7 +30,9 @@ export function voiceConfig(state: State, voice: string, canGmail = false): Agen
     speak: {
       provider: { type: "deepgram", version: "v1", model: voice || "aura-2-thalia-en" },
     },
-    greeting: state.artifact
+    greeting: state.call === "ended" || state.call === "failed"
+      ? "I'm here. We can pick up where we left off."
+      : state.artifact
       ? `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. Your draft is here. What would you like to change?`
       : /^Reminder:/i.test(state.need)
         ? `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. I can help prepare that reminder. What time tomorrow?`

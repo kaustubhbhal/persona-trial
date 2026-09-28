@@ -75,6 +75,18 @@ test("task-first users hear the assistant name instead of seeing a silent rename
   assert.match(result.reply || "", /^I’ll go by Milo for now\./);
 });
 
+test("a task question still offers Gmail in the same turn without asking a second question", () => {
+  const result = steerProposal(initialState(), "Help me plan tomorrow", {
+    need: "Plan tomorrow",
+    reply: "Let's start with your fixed commitments. What time do you need to be somewhere?",
+  }, { canGmail: true });
+  assert.match(result.reply || "", /Connect Gmail action is below/);
+  assert.equal((result.reply || "").match(/\?/g)?.length, 1);
+  const next = reduce(initialState(), { id: "task", type: "turn", text: "Help me plan tomorrow", proposal: result });
+  const followUp = steerProposal(next, "I have a class at 9", { reply: "I'll plan around your class." }, { canGmail: true });
+  assert.doesNotMatch(followUp.reply || "", /Connect Gmail action is below/);
+});
+
 test("a plain skip at the first naming prompt lets the assistant choose", async () => {
   const response = await respond(initialState(), "skip", "", "", false, false);
   assert.equal(response.agentName, "Milo");
