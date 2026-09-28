@@ -30,7 +30,7 @@ The flow uses session-bound one-time state, PKCE, a 10-minute authorization wind
 
 ## Cloudflare Workers deployment
 
-The public assessment is [persona-assessment.kaustubhsbhal.workers.dev](https://persona-assessment.kaustubhsbhal.workers.dev). Its dedicated D1 database and schema are deployed. The public Worker currently runs in rehearsal mode because its provider secrets have not been uploaded; AI, voice, and Gmail are unavailable there until those secrets are set and the Google callback is saved.
+The public assessment is [persona-assessment.kaustubhsbhal.workers.dev](https://persona-assessment.kaustubhsbhal.workers.dev). Its dedicated D1 database, schema, and provider settings are deployed. Live AI replies and Deepgram token grants have been verified. Gmail's public Google OAuth callback is entered on the Persona client but still needs to be saved before sign-in can complete.
 
 The production build emits a Worker and a local placeholder D1 binding. `scripts/cloudflare-deploy.mjs` replaces that placeholder with the real ID and deploys the same vinext application. It does not print or embed provider secrets.
 

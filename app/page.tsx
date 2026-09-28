@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { CallStage } from "@/components/persona/call-stage";
+import { GmailAction } from "@/components/persona/gmail-action";
 import {
   Sheet,
   SheetContent,
@@ -43,7 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { api, type Capabilities } from "@/lib/persona/client";
 import { nextAction, type State } from "@/lib/persona/state";
-import { onboardingGoals } from "@/lib/persona/assessment-view";
+import { onboardingGoals, showGmailAction } from "@/lib/persona/assessment-view";
 import { useVoice } from "@/lib/persona/use-voice";
 
 export default function Home() {
@@ -177,6 +179,7 @@ export default function Home() {
       "popup,width=520,height=720",
     );
     try {
+      if (voice.active) await voice.stop();
       const { url } = await api<{ url: string }>("google");
       if (popup) {
         popup.location.href = url;
@@ -184,12 +187,23 @@ export default function Home() {
           "Finish connecting in the Google window. We can keep talking here.",
         );
       } else {
-        if (voice.active) await voice.stop();
         window.location.assign(url);
       }
     } catch (e) {
       popup?.close();
       setError(e instanceof Error ? e.message : "Could not connect Gmail.");
+    }
+  }
+  async function deferGmail() {
+    setError("");
+    setBusy(true);
+    try {
+      const data = await api("profile", { proposal: { deferGmail: true } });
+      accept(data.state);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save that choice. Please retry.");
+    } finally {
+      setBusy(false);
     }
   }
   async function reset() {
@@ -225,6 +239,14 @@ export default function Home() {
   const active = voice.active;
   const artifact = state?.artifact;
   const showGmail = Boolean(state?.agentName && capabilities.gmail) || state?.gmail === "connected";
+  const gmailAction = state && showGmailAction(state, capabilities) ? (
+    <GmailAction
+      failed={state.gmail === "failed"}
+      busy={busy}
+      onConnect={() => void connect()}
+      onSkip={() => void deferGmail()}
+    />
+  ) : null;
   const draftEditor = artifact ? (
     <div className="artifact">
       <Textarea
@@ -301,6 +323,23 @@ export default function Home() {
       )}
     </section>
   );
+  if (active) {
+    return (
+      <main className="app-shell">
+        <CallStage
+          agentName={name}
+          userName={state?.userName || ""}
+          phase={voice.phase}
+          muted={voice.muted}
+          caption={voice.caption}
+          action={gmailAction}
+          onMute={voice.toggleMute}
+          onEnd={() => void voice.stop().catch((e) => setError(e.message))}
+          onReturnToText={() => void voice.stop().catch((e) => setError(e.message))}
+        />
+      </main>
+    );
+  }
   return (
     <main className="app-shell">
       <section className="conversation-panel">
@@ -549,6 +588,7 @@ export default function Home() {
               </Button>
             </section>
           )}
+          {gmailAction}
           <div ref={end} />
         </div>
         <div className="composer-area">

@@ -32,14 +32,16 @@ test("verified email and captured task display bounded confirmed values", () => 
   assert.equal(goals[3].value, "Draft a recruiter follow-up");
 });
 
-test("Gmail action appears at an invitation or after a useful task, then clears on defer", () => {
+test("Gmail action appears with an invitation or failed connection, then clears on defer", () => {
   const fresh = initialState();
   assert.equal(showGmailAction(fresh, live), false);
   const named = { ...fresh, agentName: "Milo" };
   assert.equal(showGmailAction(named, live), false);
   const invited = { ...named, messages: [...named.messages, { id: "offer", role: "assistant" as const, channel: "text" as const, content: "Want to connect Gmail to verify your account?", at: Date.now() }] };
   assert.equal(showGmailAction(invited, live), true);
-  assert.equal(showGmailAction({ ...named, userName: "Alex", need: "Plan tomorrow" }, live), true);
+  assert.equal(showGmailAction({ ...invited, agentName: "" }, live), true);
+  assert.equal(showGmailAction({ ...named, userName: "Alex", need: "Plan tomorrow" }, live), false);
+  assert.equal(showGmailAction({ ...named, gmail: "failed" }, live), true);
   assert.equal(showGmailAction({ ...invited, gmail: "deferred" }, live), false);
   assert.equal(showGmailAction({ ...invited, gmail: "connected" }, live), false);
   assert.equal(showGmailAction(invited, { ...live, gmail: false }), false);

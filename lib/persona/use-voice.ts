@@ -17,6 +17,7 @@ export function useVoice(
 ) {
   const [phase, setPhase] = useState("idle");
   const [muted, setMuted] = useState(false);
+  const [caption, setCaption] = useState<{ role: "user" | "assistant"; text: string } | null>(null);
   const resources = useRef<{
     session?: AgentSession;
     mic?: AgentMicrophone;
@@ -96,6 +97,7 @@ export function useVoice(
     } = { cancelled: false };
     resources.current = r;
     setPhase("connecting");
+    setCaption(null);
     try {
       const config = await api<{ token: string; agent: AgentSettingsObject }>(
         "voice-token",
@@ -152,6 +154,8 @@ export function useVoice(
       });
       session.on("conversation-text", (message) => {
         if (r.cancelled) return;
+        if (message.content?.trim())
+          setCaption({ role: message.role === "user" ? "user" : "assistant", text: message.content });
         void enqueue(async () => {
           const data = await api("transcript", {
             role: message.role,
@@ -259,5 +263,5 @@ export function useVoice(
       setMuted(true);
     }
   }, []);
-  return { phase, muted, start, stop, toggleMute, active: phase !== "idle" };
+  return { phase, muted, caption, start, stop, toggleMute, active: phase !== "idle" };
 }
