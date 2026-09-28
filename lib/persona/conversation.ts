@@ -163,7 +163,7 @@ export function rehearsal(s: State, text: string): Proposal {
       ? `${p.userName} it is. Your draft is still here, ready to edit.`
       : p.deferGmail
         ? "No problem—we can keep going without Gmail. Your draft is still here."
-        : "Your draft is ready to edit in the workspace. This rehearsal uses a starter template; live AI will tailor it to the conversation once configured.";
+        : "I made a starter draft. Open it below to edit.";
     return p;
   }
   if (need) {
@@ -175,8 +175,8 @@ export function rehearsal(s: State, text: string): Proposal {
         : `What you want help with:\n${need}\n\n1. Define the one outcome that matters today.\n2. Pick a first action that takes less than 15 minutes.\n3. Leave everything else for after that first action.`,
     };
     p.reply = email
-      ? "I put a starting draft beside our conversation. What was the last thing you discussed?"
-      : "Let’s make that manageable. I put a starting point in your workspace. What would make the biggest difference today?";
+      ? "I made a starting draft. What was the last thing you discussed?"
+      : "I made a starting point. What would make the biggest difference today?";
   } else if (!agentName)
     p.reply =
       "What should I call myself? You can give me a name, or say “you choose.”";

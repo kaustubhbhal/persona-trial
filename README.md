@@ -1,6 +1,6 @@
 # Persona assessment
 
-Disposable conversational onboarding, isolated from Orbit. A React/Vinext app with durable D1 sessions, shared voice/text memory, an editable draft workspace, a real Google OAuth implementation, and Deepgram browser voice integration.
+Disposable conversational onboarding, isolated from Orbit. A React/Vinext app with durable D1 sessions, shared voice/text memory, a contextual editable draft, a real Google OAuth implementation, and Deepgram browser voice integration.
 
 ## Current status
 
@@ -51,7 +51,7 @@ The integration suite creates disposable sessions and checks duplicate requests,
 
 ## Files
 
-- `app/page.tsx`, `app/globals.css`: responsive conversation, call controls, draft workspace and diagnostics drawer.
+- `app/page.tsx`, `app/globals.css`: responsive conversation, call controls, contextual draft, Gmail card, and Internals panel.
 - `lib/persona/state.ts`: bounded facts, independent setup/task state and idempotent events.
 - `lib/persona/store.ts`: opaque HTTP-only sessions, D1 compare-and-swap and turn lease.
 - `lib/persona/conversation.ts`: shared prompt, structured response schema and labeled rehearsal.

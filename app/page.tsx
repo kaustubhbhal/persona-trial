@@ -15,11 +15,9 @@ import {
   MicOff,
   Phone,
   PhoneOff,
-  Plus,
   RotateCcw,
   Settings2,
   ShieldCheck,
-  Sparkles,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { api, type Capabilities } from "@/lib/persona/client";
 import { nextAction, type State } from "@/lib/persona/state";
+import { onboardingGoals } from "@/lib/persona/assessment-view";
 import { useVoice } from "@/lib/persona/use-voice";
 
 export default function Home() {
@@ -59,6 +58,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
   const [artifactEdit, setArtifactEdit] = useState<string | null>(null);
   const artifactBody = artifactEdit ?? state?.artifact?.body ?? "";
   const artifactDirty = artifactEdit !== null;
@@ -195,6 +195,7 @@ export default function Home() {
       setState(null);
       setText("");
       setArtifactEdit(null);
+      setDraftOpen(false);
       setNotice("");
       pendingTurn.current = null;
       await load();
@@ -215,7 +216,7 @@ export default function Home() {
       setError(e instanceof Error ? e.message : "Could not save your draft.");
     }
   }
-  const name = state?.agentName || "Your plus-one";
+  const name = state?.agentName || "Assistant";
   const active = voice.active;
   const callLabel =
     voice.phase === "connecting"
@@ -228,130 +229,86 @@ export default function Home() {
             ? `${name} is speaking`
             : "Listening to you";
   const artifact = state?.artifact;
-  const workspace = (
-    <>
-      <div className="workspace-heading">
-        <span className="eyebrow">YOUR WORKSPACE</span>
-        <span className="workspace-number">01</span>
-      </div>
-      {artifact ? (
-        <div className="artifact">
-          <div className="artifact-icon">
-            <FileText size={20} />
-            <span>Working draft</span>
-          </div>
-          <h2>{artifact.title}</h2>
-          <Textarea
-            aria-label="Edit your working draft"
-            className="artifact-editor"
-            value={artifactBody}
-            onChange={(event) => {
-              setArtifactEdit(event.target.value);
-            }}
-          />
-          <div className="artifact-actions">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(artifactBody);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1800);
-                } catch {
-                  setError(
-                    "Copy was blocked by your browser. Select and copy the draft instead.",
-                  );
-                }
-              }}
-            >
-              {copied ? <Check /> : <Copy />}
-              {copied ? "Copied" : "Copy draft"}
-            </Button>
-            {artifactDirty && (
-              <Button onClick={() => void saveArtifact()}>Save edits</Button>
-            )}
-          </div>
-          <p className="fine-print">
-            Yours to edit. Nothing is sent automatically.
-          </p>
-        </div>
-      ) : (
-        <div className="workspace-empty">
-          <div className="paper-symbol">
-            <FileText size={26} />
-            <span>
-              <Plus size={12} />
-            </span>
-          </div>
-          <h2>
-            A little less
-            <br />
-            on your plate.
-          </h2>
-          <p>
-            Tell me what you’re working through. We’ll turn it into something
-            useful, right here.
-          </p>
-          <div className="empty-examples">
-            <span>
-              <span className="tiny-line" />A reply you’ve been putting off
-            </span>
-            <span>
-              <span className="tiny-line" />A plan for a busy week
-            </span>
-            <span>
-              <span className="tiny-line" />
-              Somewhere to start
-            </span>
-          </div>
-        </div>
-      )}
-      <div className="gmail-card">
-        <div className="gmail-top">
-          <div className="mail-icon">
-            <Mail size={20} />
-          </div>
-          <div>
-            <strong>
-              {state?.gmail === "connected"
-                ? "Gmail is connected"
-                : "A little more context"}
-            </strong>
-            <span>
-              {state?.gmail === "connected"
-                ? state.gmailEmail
-                : "Connect Gmail when you’re ready"}
-            </span>
-          </div>
-          {state?.gmail === "connected" && <Check size={18} />}
-        </div>
-        <p>
-          {state?.gmail === "connected"
-            ? "Your account is verified. For this assessment, share the email context you’d like help with."
-            : "Connect your account, or tell me what I need to know. Either way, we can get started."}
-        </p>
-        {state?.gmail !== "connected" && (
-          <Button
-            variant="outline"
-            className="gmail-button"
-            onClick={() => void connect()}
-            disabled={busy}
-          >
-            <Mail size={16} />
-            {state?.gmail === "failed" ? "Try Gmail again" : "Connect Gmail"}
-            <ArrowUpRight size={15} />
-          </Button>
+  const showGmail = Boolean(state?.agentName);
+  const draftEditor = artifact ? (
+    <div className="artifact">
+      <Textarea
+        aria-label="Edit your draft"
+        className="artifact-editor"
+        value={artifactBody}
+        onChange={(event) => setArtifactEdit(event.target.value)}
+      />
+      <div className="artifact-actions">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(artifactBody);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1800);
+            } catch {
+              setError("Copy was blocked. Select and copy the draft instead.");
+            }
+          }}
+        >
+          {copied ? <Check /> : <Copy />}
+          {copied ? "Copied" : "Copy draft"}
+        </Button>
+        {artifactDirty && (
+          <Button onClick={() => void saveArtifact()}>Save edits</Button>
         )}
-        <div className="permission-note">
-          <ShieldCheck size={12} />
-          You decide what to share.
-        </div>
       </div>
-    </>
+      <p className="fine-print">You can edit or copy this. Nothing is sent.</p>
+    </div>
+  ) : null;
+  const gmailCard = (
+    <section className="gmail-card" aria-label="Gmail connection">
+      <div className="gmail-top">
+        <div className="mail-icon"><Mail size={19} /></div>
+        <div>
+          <strong>
+            {state?.gmail === "connected" ? "Gmail connected" : "Connect Gmail"}
+          </strong>
+          <span>
+            {state?.gmail === "connected"
+              ? state.gmailEmail
+              : state?.gmail === "deferred"
+                ? "Skipped for now"
+                : state?.gmail === "failed"
+                  ? "Connection did not finish"
+                  : state?.gmail === "pending"
+                    ? "Waiting for Google"
+                    : capabilities.gmail
+                      ? "Optional"
+                      : "Unavailable in this demo"}
+          </span>
+        </div>
+        {state?.gmail === "connected" && <ShieldCheck size={18} />}
+      </div>
+      <p>
+        {state?.gmail === "connected"
+          ? "Account verified. Tell me what email context you want help with; this demo does not read messages."
+          : capabilities.gmail
+            ? "Connect to verify your account. This demo does not read or send email."
+            : "Gmail is not configured here. We can still continue."}
+      </p>
+      {state?.gmail !== "connected" && capabilities.gmail && (
+        <Button
+          variant="outline"
+          className="gmail-button"
+          onClick={() => void connect()}
+          disabled={busy || state?.gmail === "pending"}
+        >
+          <Mail size={16} />
+          {state?.gmail === "failed" ? "Try again" : "Connect Gmail"}
+          <ArrowUpRight size={15} />
+        </Button>
+      )}
+    </section>
   );
   return (
     <main className="app-shell">
-      <aside className="companion-panel">
+      <aside className={`companion-panel ${capabilities.voice ? "" : "voice-unavailable"}`}>
         <div className="wordmark" aria-label="Persona">
           <span className="brand-mark">
             <span />
@@ -362,28 +319,24 @@ export default function Home() {
         <div className="companion-main">
           <div className="intro-label">
             <span className="small-dash" />
-            {state?.helping ? "A LITTLE MOMENTUM" : "A GOOD PLACE TO START"}
+            {state?.helping ? "WORKING TOGETHER" : "PERSONAL ASSISTANT"}
           </div>
           <h1>
             {state?.helping ? (
               <>
-                Let’s take
+                Let’s work
                 <br />
-                one thing
-                <br />
-                <em>off your plate.</em>
+                <em>on it.</em>
               </>
             ) : (
               <>
-                Your day,
+                Start with
                 <br />
-                with a little
-                <br />
-                <em>more room.</em>
+                <em>a conversation.</em>
               </>
             )}
           </h1>
-          <div
+          {(capabilities.voice || active) && <div
             className={`voice-presence ${active ? "is-active" : ""}`}
             aria-hidden="true"
           >
@@ -399,18 +352,18 @@ export default function Home() {
                 ))}
               </div>
             </div>
-          </div>
+          </div>}
           <div className="companion-identity">
             <h2>{name}</h2>
             <p>
               {active
                 ? callLabel
                 : state?.agentName
-                  ? "Your personal assistant"
-                  : "An assistant that gets to know you"}
+                  ? "Your assistant"
+                  : "Pick a name to begin"}
             </p>
           </div>
-          <div className="call-controls">
+          {(capabilities.voice || active) && <div className="call-controls">
             {active ? (
               <>
                 <Button
@@ -449,155 +402,129 @@ export default function Home() {
                 <span>↗</span>
               </Button>
             )}
-          </div>
-          <p className="call-caption">
+          </div>}
+          {(capabilities.voice || active) && <p className="call-caption">
             {active
               ? "You can interrupt. I’m listening."
-              : "A quick call, right in your browser."}
-          </p>
-        </div>
-        <div className="companion-footer">
-          <span className="footer-flower">✳</span>
-          <p>
-            At your pace.
-            <br />
-            Always on your side.
-          </p>
-          <span className="session-label">FIRST CONVERSATION</span>
+              : "Talk here in your browser."}
+          </p>}
         </div>
       </aside>
       <section className="conversation-panel">
         <header className="conversation-header">
           <div>
             <span className="eyebrow">
-              {state?.helping
-                ? "LET’S GET INTO IT"
-                : "LET’S GET TO KNOW EACH OTHER"}
+              {state?.helping ? "IN PROGRESS" : "FIRST CONVERSATION"}
             </span>
             <h2>
               {state?.userName
-                ? `A little space for you, ${state.userName}.`
-                : "Make yourself at home."}
+                ? `Hi, ${state.userName}.`
+                : "Let’s begin."}
             </h2>
           </div>
           <div className="header-actions">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  className="workspace-toggle"
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Open workspace"
-                >
-                  <FileText />
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="mobile-workspace">
+            <Sheet open={draftOpen} onOpenChange={setDraftOpen}>
+              <SheetContent className="draft-sheet">
                 <SheetHeader>
-                  <SheetTitle>Your workspace</SheetTitle>
+                  <SheetTitle>{artifact?.title || "Draft"}</SheetTitle>
                   <SheetDescription>
-                    Drafts, plans, and your Gmail connection.
+                    A starting point based on what you shared.
                   </SheetDescription>
                 </SheetHeader>
-                {workspace}
+                {draftEditor}
               </SheetContent>
             </Sheet>
             <Sheet>
               <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Open session details"
-                >
-                  <Settings2 size={18} />
+                <Button variant="outline" className="internals-trigger">
+                  <Settings2 size={16} />
+                  Internals
                 </Button>
               </SheetTrigger>
               <SheetContent className="details-sheet">
                 <SheetHeader>
-                  <SheetTitle>Under the hood</SheetTitle>
+                  <span className="eyebrow">ASSESSMENT VIEW</span>
+                  <SheetTitle>Internals</SheetTitle>
                   <SheetDescription>
-                    Confirmed facts and application events. No hidden reasoning.
+                    What the onboarding has learned and what it will do next.
                   </SheetDescription>
                 </SheetHeader>
                 <div className="details-content">
-                  <span className="eyebrow">THIS SESSION</span>
-                  <dl>
-                    {[
-                      ["Agent", state?.agentName || "Not chosen"],
-                      ["You", state?.userName || "Not shared"],
-                      ["Need", state?.need || "Still exploring"],
-                      ["Gmail", state?.gmail || "Not connected"],
-                      ["Call", state?.call || "Not offered"],
-                      ["Helping", state?.helping ? "Yes" : "Not yet"],
-                      [
-                        "Text",
-                        capabilities.ai ? "Live AI" : "Limited rehearsal",
-                      ],
-                      [
-                        "Voice",
-                        capabilities.voice
-                          ? "Deepgram configured"
-                          : "Needs Deepgram key",
-                      ],
-                    ].map(([label, value]) => (
-                      <div key={label}>
-                        <dt>{label}</dt>
-                        <dd>{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <div className="next-action">
-                    <strong>Next useful move</strong>
-                    <p>
-                      {state ? nextAction(state) : "Loading the conversation"}
-                    </p>
+                  <div className="internals-note">
+                    <strong>One conversation, two channels.</strong>
+                    <p>Text and voice update the same confirmed facts. A call can end without losing the thread.</p>
                   </div>
-                  <span className="eyebrow">RECENT EVENTS</span>
+                  <div className="internals-section-heading">
+                    <span className="eyebrow">ONBOARDING GOALS</span>
+                    <span>{state ? onboardingGoals(state, capabilities).filter((goal) => goal.status === "complete").length : 0}/4 captured</span>
+                  </div>
+                  <ol className="goal-list">
+                    {state && onboardingGoals(state, capabilities).map((goal, index) => (
+                      <li className={"goal-row status-" + goal.status} key={goal.key}>
+                        <span className="goal-index">0{index + 1}</span>
+                        <div className="goal-copy">
+                          <strong>{goal.label}</strong>
+                          <span>{goal.value}</span>
+                        </div>
+                        <span className="goal-status">{goal.status}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="internals-section-heading">
+                    <span className="eyebrow">CHANNELS</span>
+                  </div>
+                  <div className="channel-grid">
+                    <div><strong>Text</strong><span>{capabilities.ai ? "Live AI" : "Rehearsal"}</span></div>
+                    <div><strong>Voice</strong><span>{capabilities.voice ? state?.call === "not_offered" ? "Ready" : state?.call || "Ready" : "Unavailable"}</span></div>
+                    <div><strong>Gmail</strong><span>{state?.gmail === "connected" ? "Verified" : capabilities.gmail ? "Optional" : "Unavailable"}</span></div>
+                  </div>
+                  <div className="next-action">
+                    <span className="eyebrow">NEXT USEFUL MOVE</span>
+                    <p>{state ? nextAction(state, capabilities.voice) : "Loading the conversation"}</p>
+                  </div>
+                  <div className="internals-section-heading">
+                    <span className="eyebrow">RECENT EVENTS</span>
+                    <span>v{state?.version ?? 0}</span>
+                  </div>
                   <ul className="event-list">
-                    {state?.events
-                      .slice(-12)
-                      .reverse()
-                      .map((event) => (
-                        <li key={event.id}>
-                          <span>{event.label}</span>
-                          <time>
-                            {new Date(event.at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </time>
-                        </li>
-                      ))}
+                    {state?.events.length ? state.events.slice(-12).reverse().map((event) => (
+                      <li key={event.id}>
+                        <span>{event.label}</span>
+                        <time>
+                          {new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </time>
+                      </li>
+                    )) : <li><span>No events yet</span></li>}
                   </ul>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline">
-                        <RotateCcw />
-                        Start a fresh conversation
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Start fresh?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This deletes this assessment’s conversation, draft,
-                          and saved Gmail credentials. It does not change your
-                          Orbit account.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>
-                          Keep this conversation
-                        </AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void reset()}>
-                          Start fresh
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <p className="internals-footnote">
+                    This panel shows application state and events, not model reasoning.
+                  </p>
                 </div>
               </SheetContent>
             </Sheet>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" className="reset-trigger" disabled={!state}>
+                  <RotateCcw size={15} />
+                  Reset
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Start a new assessment?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This clears this demo’s conversation, draft, and stored Gmail credentials.
+                    It does not revoke Google’s authorization.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep this one</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void reset()}>
+                    Reset conversation
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </header>
         <div
@@ -606,11 +533,6 @@ export default function Home() {
           aria-label="Conversation"
           aria-live="polite"
         >
-          <div className="date-marker">
-            <span />
-            TODAY · A FRESH START
-            <span />
-          </div>
           {!state ? (
             <div className="loading-session">
               <LoaderCircle className="spin" />
@@ -629,7 +551,7 @@ export default function Home() {
               >
                 {message.role === "assistant" && (
                   <div className="message-avatar">
-                    <span className="mini-mark">✳</span>
+                    <span className="mini-mark">p</span>
                   </div>
                 )}
                 <div className="message-content">
@@ -638,7 +560,9 @@ export default function Home() {
                       ? state.userName || "You"
                       : message.role === "system"
                         ? "Session"
-                        : name}
+                        : message.id === "hello"
+                          ? "Assistant"
+                          : name}
                     {message.channel === "voice" && <AudioLines size={12} />}
                   </div>
                   <p>{message.content}</p>
@@ -649,7 +573,7 @@ export default function Home() {
           {busy && (
             <div className="message message-assistant">
               <div className="message-avatar">
-                <span className="mini-mark">✳</span>
+                <span className="mini-mark">p</span>
               </div>
               <div className="thinking" aria-label="Thinking">
                 <span />
@@ -662,35 +586,20 @@ export default function Home() {
             <div className="suggestions">
               <Button
                 variant="outline"
-                onClick={() => void send("Let’s call you Milo.")}
-              >
-                <span>Milo</span>
-                <Plus size={14} />
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void send("Let’s call you Sunny.")}
-              >
-                <span>Sunny</span>
-                <Plus size={14} />
-              </Button>
-              <Button
-                variant="ghost"
                 onClick={() => void send("You choose your name.")}
               >
-                <Sparkles size={14} />
-                You choose
+                Choose for me
               </Button>
             </div>
           )}
-          {state?.call === "offered" && !active && !busy && (
+          {capabilities.voice && state?.call === "offered" && state.messages.filter((message) => message.role === "user").length === 1 && !active && !busy && (
             <div className="call-invitation">
               <div>
                 <Phone size={16} />
-                <span>Same conversation. A little more human.</span>
+                <span>Want to talk instead?</span>
               </div>
               <Button variant="outline" onClick={() => void voice.start()}>
-                Hop on a call
+                Start browser call
                 <ChevronRight size={14} />
               </Button>
               <Button
@@ -704,10 +613,21 @@ export default function Home() {
                   }
                 }}
               >
-                Keep typing
+                Continue in text
               </Button>
             </div>
           )}
+          {artifact && (
+            <section className="draft-card" aria-label="Your draft">
+              <div className="draft-card-label"><FileText size={16} /> DRAFT READY</div>
+              <h3>{artifact.title}</h3>
+              <p>{artifact.body}</p>
+              <Button variant="outline" onClick={() => setDraftOpen(true)}>
+                Open draft <ChevronRight size={15} />
+              </Button>
+            </section>
+          )}
+          {showGmail && gmailCard}
           <div ref={end} />
         </div>
         <div className="composer-area">
@@ -745,7 +665,7 @@ export default function Home() {
           {state?.call === "ended" && !active && (
             <div className="channel-note">
               <MessageCircle size={13} />
-              Same conversation. We can keep going here.
+              Call ended. Continue here whenever you’re ready.
             </div>
           )}
           <form
@@ -760,8 +680,8 @@ export default function Home() {
               aria-label="Your message"
               placeholder={
                 state?.agentName
-                  ? `Tell ${state.agentName} what’s on your mind…`
-                  : "A name, a thought, whatever’s on your mind…"
+                  ? `Message ${state.agentName}…`
+                  : "Choose a name or tell me what you need…"
               }
               value={text}
               onChange={(event) => setText(event.target.value)}
@@ -792,13 +712,12 @@ export default function Home() {
             <span>
               {active
                 ? "Send a message to switch back to text."
-                : "No perfect answers needed."}
+                : "Shift + Enter for a new line"}
             </span>
             <span>↵ to send</span>
           </div>
         </div>
       </section>
-      <aside className="workspace-panel">{workspace}</aside>
     </main>
   );
 }

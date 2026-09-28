@@ -132,8 +132,19 @@ try {
     assert.match(await replay.text(), /result:'failed'/);
     checks++;
   }
+  const reset = await send("reset");
+  assert.equal(reset.status, 200);
+  const freshResponse = await fetch(`${base}/api/persona`, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(freshResponse.status, 200);
+  const freshState = (await freshResponse.json()).state;
+  assert.equal(freshState.version, 0);
+  assert.equal(freshState.artifact, null);
+  assert.equal(freshState.gmail, "not_connected");
+  checks++;
   console.log(
-    `${checks} integration checks passed: retries, atomic updates, forged status, refresh, origin, isolation, voice fallback and OAuth.`,
+    `${checks} integration checks passed: retries, atomic updates, forged status, refresh, origin, isolation, voice fallback, OAuth and reset.`,
   );
 } finally {
   await send("reset");
