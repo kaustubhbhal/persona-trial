@@ -73,7 +73,7 @@ export default function Home() {
       ),
     [],
   );
-  const voice = useVoice(accept, setError, state);
+  const voice = useVoice(accept, setError, state, capabilities.gmail);
   const load = useCallback(async () => {
     try {
       const response = await fetch("/api/persona");
@@ -405,7 +405,7 @@ export default function Home() {
                   </div>
                   <div className="next-action">
                     <span className="eyebrow">NEXT USEFUL MOVE</span>
-                    <p>{state ? nextAction(state, capabilities.voice) : "Loading the conversation"}</p>
+                    <p>{state ? nextAction(state, capabilities.voice, capabilities.gmail) : "Loading the conversation"}</p>
                   </div>
                   <div className="internals-section-heading">
                     <span className="eyebrow">RECENT EVENTS</span>
@@ -518,7 +518,7 @@ export default function Home() {
             <div className="call-invitation">
               <div>
                 <Phone size={16} />
-                <span>Want to talk instead?</span>
+                <span>Want to talk this through?</span>
               </div>
               <Button variant="outline" onClick={() => void voice.start()}>
                 Start browser call

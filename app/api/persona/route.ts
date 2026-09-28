@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         const token = await grantVoiceToken(setting("DEEPGRAM_API_KEY"));
         return json({
           token,
-          agent: voiceConfig(state, setting("DEEPGRAM_VOICE")),
+          agent: voiceConfig(state, setting("DEEPGRAM_VOICE"), googleConfigured()),
         });
       } catch (error) {
         return json({ error: error instanceof Error ? error.message : "Voice is unavailable right now." }, 503);
@@ -110,6 +110,7 @@ export async function POST(request: Request) {
           setting("OPENAI_API_KEY"),
           setting("PERSONA_OPENAI_MODEL"),
           canCall,
+          googleConfigured(),
         );
         const next = await apply(row.id, { id, type: "turn", text, proposal, callAvailable: canCall });
         return json({ state: next });

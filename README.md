@@ -58,7 +58,7 @@ npm run lint
 npm run build
 ```
 
-`npm run test:integration` runs a rehearsal-only HTTP suite and expects a local server without `OPENAI_API_KEY`; it avoids model charges. It covers duplicate and concurrent events, forged Gmail status, cross-session isolation, origin/body validation, OAuth cancellation and replay, and Reset. Unit tests cover onboarding state, voice config, and the deployment configuration. Local HTTP smoke testing with live keys should avoid sending unnecessary model turns.
+`npm run test:integration` runs a rehearsal-only HTTP suite against `TEST_URL` (default `http://localhost:3017`) and expects AI capability to be off; it avoids model charges. It covers duplicate and concurrent events, forged Gmail status, cross-session isolation, origin/body validation, OAuth cancellation and replay, and Reset. Unit tests cover onboarding state, task-first steering, name and Gmail deferrals, voice config, and the deployment configuration. Local HTTP smoke testing with live keys should avoid sending unnecessary model turns.
 
 ## Main files
 

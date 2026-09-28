@@ -15,3 +15,12 @@ test("voice agent uses a supported client function definition", () => {
   assert.equal(params.properties.userName.type, "string");
   assert.equal(params.properties.need.type, "string");
 });
+
+test("voice picks up a reminder without asking for the task again", () => {
+  const state = initialState();
+  state.agentName = "Milo";
+  state.need = "Reminder: eat tomorrow";
+  const config = voiceConfig(state, "");
+  assert.match(config.greeting || "", /What time tomorrow\?/);
+  assert.doesNotMatch(config.greeting || "", /tackle first/i);
+});

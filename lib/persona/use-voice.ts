@@ -13,6 +13,7 @@ export function useVoice(
   onState: (s: State) => void,
   onError: (message: string) => void,
   state: State | null,
+  canGmail = false,
 ) {
   const [phase, setPhase] = useState("idle");
   const [muted, setMuted] = useState(false);
@@ -83,8 +84,8 @@ export function useVoice(
       resources.current?.session &&
       resources.current.session.state === "connected"
     )
-      resources.current.session.updatePrompt(prompt(current, true));
-  }, [state?.agentName, state?.userName, state?.need, state?.gmail, state?.gmailEmail, state?.artifact?.title, state?.artifact?.body]); // Keep confirmed facts current during the call.
+      resources.current.session.updatePrompt(prompt(current, true, false, canGmail));
+  }, [state?.agentName, state?.userName, state?.need, state?.gmail, state?.gmailEmail, state?.artifact?.title, state?.artifact?.body, canGmail]); // Keep confirmed facts current during the call.
   const start = useCallback(async () => {
     if (resources.current) return;
     const r: {

@@ -19,19 +19,23 @@ export const rememberFunction = {
     },
   },
 };
-export function voiceConfig(state: State, voice: string): AgentSettingsObject {
+export function voiceConfig(state: State, voice: string, canGmail = false): AgentSettingsObject {
   return {
     listen: { provider: { type: "deepgram", version: "v1", model: "nova-3", language: "en" } },
     think: {
       provider: { type: "open_ai", model: "gpt-4o-mini" },
-      prompt: prompt(state, true),
+      prompt: prompt(state, true, false, canGmail),
       functions: [rememberFunction],
     },
     speak: {
       provider: { type: "deepgram", version: "v1", model: voice || "aura-2-thalia-en" },
     },
-    greeting: state.need
-      ? `Hey${state.userName ? ` ${state.userName}` : ""}. Let’s pick up where we left off. What would you like to tackle first?`
-      : `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. ${state.userName ? "What’s on your plate today?" : "What should I call you?"}`,
+    greeting: state.artifact
+      ? `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. Your draft is here. What would you like to change?`
+      : /^Reminder:/i.test(state.need)
+        ? `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. I can help prepare that reminder. What time tomorrow?`
+        : state.need
+          ? `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. Let’s work on what you mentioned. What detail should I know first?`
+          : `Hey${state.userName ? ` ${state.userName}` : ""}, it’s ${state.agentName || "Milo"}. ${state.userName ? "What’s on your plate today?" : "What should I call you?"}`,
   };
 }

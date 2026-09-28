@@ -153,11 +153,15 @@ export function reduce(s: State, event: Event): State {
   next.messages = next.messages.slice(-120);
   return next;
 }
-export function nextAction(s: State, callAvailable = false): string {
-  if (!s.agentName) return "Choose an agent name";
-  if (callAvailable && s.call === "offered") return "Offer a short call; text remains available";
-  if (s.need)
-    return "Help with the task; collect missing context only when useful";
-  if (!s.userName) return "Learn what to call the user";
-  return "Find one thing to help with";
+export function nextAction(s: State, callAvailable = false, gmailAvailable = false): string {
+  if (!s.agentName) return "Let the user choose an assistant name, or choose Milo for them";
+  if (s.need) {
+    if (!s.userName) return "Help with the task, then learn what to call the user when it fits";
+    if (gmailAvailable && s.gmail === "not_connected" && !s.messages.some((message) => message.role === "assistant" && /connect gmail|gmail.*(?:verify|connect)/i.test(message.content)))
+      return "Offer optional Gmail verification after a useful step";
+    return "Keep helping with the task";
+  }
+  if (callAvailable && s.call === "offered") return "Offer a short browser call; text stays available";
+  if (!s.userName) return "Find one useful task, then learn the user's preferred name";
+  return "Find one useful task to help with";
 }
